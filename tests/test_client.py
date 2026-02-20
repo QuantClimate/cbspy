@@ -10,6 +10,17 @@ from cbspy.models import Column, TableMetadata
 BASE = "https://opendata.cbs.nl"
 
 
+def test_public_imports():
+    from cbspy import Client, Column, TableMetadata, CBSError, TableNotFoundError, APIError
+
+    assert Client is not None
+    assert Column is not None
+    assert TableMetadata is not None
+    assert CBSError is not None
+    assert TableNotFoundError is not None
+    assert APIError is not None
+
+
 class TestListTables:
     @respx.mock
     def test_returns_polars_dataframe(self):
