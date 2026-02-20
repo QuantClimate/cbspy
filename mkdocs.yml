@@ -1,25 +1,40 @@
 site_name: cbspy
 repo_url: https://github.com/thomaspinder/cbspy
 site_url: https://thomaspinder.github.io/cbspy
-site_description: A repository for interacting with and manipulating data from CBS Statline.
+site_description: A modern Python client for CBS Statline open data.
 site_author: Thomas Pinder
 edit_uri: edit/main/docs/
 repo_name: thomaspinder/cbspy
 copyright: Maintained by <a href="https://thomaspinder.com">thomaspinder</a>.
 
+exclude_docs: |
+  plans/
+
 nav:
   - Home: index.md
-  - Modules: modules.md
+  - Getting Started: getting-started.md
+  - API Reference: api-reference.md
+  - Interactive Examples:
+    - Exploring CBS Data: examples/exploring-cbs-data.md
+    - Working with Population Data: examples/population-data.md
+    - Period Codes & Column Resolution: examples/period-codes.md
+
 plugins:
   - search
   - mkdocstrings:
       handlers:
         python:
           paths: ["src/cbspy"]
+  - marimo
+
 theme:
   name: material
-  feature:
-    tabs: true
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.highlight
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -48,5 +63,11 @@ extra:
 markdown_extensions:
   - toc:
       permalink: true
+  - admonition
   - pymdownx.arithmatex:
       generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
