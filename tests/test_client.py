@@ -107,3 +107,80 @@ class TestGetMetadata:
         client = Client()
         with pytest.raises(TableNotFoundError):
             client.get_metadata("FAKE")
+
+
+class TestGetData:
+    @respx.mock
+    def test_returns_dataframe_with_resolved_columns(self):
+        respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
+            return_value=httpx.Response(200, json={
+                "value": [
+                    {"odata.type": "Cbs.OData.TimeDimension", "ID": 0, "Key": "Periods",
+                     "Title": "Periods", "Description": "", "Type": "TimeDimension"},
+                    {"odata.type": "Cbs.OData.Topic", "ID": 1, "Key": "TotalPopulation_1",
+                     "Title": "Total population", "Description": "", "Type": "Topic",
+                     "Datatype": "Double", "Unit": "number"},
+                    {"odata.type": "Cbs.OData.Topic", "ID": 2, "Key": "Males_2",
+                     "Title": "Males", "Description": "", "Type": "Topic",
+                     "Datatype": "Long", "Unit": "number"},
+                ]
+            })
+        )
+        respx.get(f"{BASE}/ODataApi/odata/37296eng/TypedDataSet").mock(
+            return_value=httpx.Response(200, json={
+                "value": [
+                    {"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": 17811291, "Males_2": 8864},
+                    {"ID": 1, "Periods": "2022JJ00", "TotalPopulation_1": 17590672, "Males_2": 8757},
+                ]
+            })
+        )
+        client = Client()
+        df = client.get_data("37296eng")
+        assert isinstance(df, pl.DataFrame)
+        assert "Periods" in df.columns
+        assert "Total population" in df.columns
+        assert "Males" in df.columns
+        assert df["Periods"][0] == "2023"
+        assert df["Total population"][0] == 17811291
+
+    @respx.mock
+    def test_get_data_with_periods_filter(self):
+        respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
+            return_value=httpx.Response(200, json={
+                "value": [
+                    {"odata.type": "Cbs.OData.TimeDimension", "ID": 0, "Key": "Periods",
+                     "Title": "Periods", "Description": "", "Type": "TimeDimension"},
+                    {"odata.type": "Cbs.OData.Topic", "ID": 1, "Key": "TotalPopulation_1",
+                     "Title": "Total population", "Description": "", "Type": "Topic",
+                     "Datatype": "Double", "Unit": "number"},
+                ]
+            })
+        )
+        respx.get(f"{BASE}/ODataApi/odata/37296eng/TypedDataSet").mock(
+            return_value=httpx.Response(200, json={
+                "value": [
+                    {"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": 17811291},
+                ]
+            })
+        )
+        client = Client()
+        df = client.get_data("37296eng", periods=["2023JJ00"])
+        assert df.shape[0] == 1
+
+    @respx.mock
+    def test_get_data_empty_dataset(self):
+        respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
+            return_value=httpx.Response(200, json={
+                "value": [
+                    {"odata.type": "Cbs.OData.TimeDimension", "ID": 0, "Key": "Periods",
+                     "Title": "Periods", "Description": "", "Type": "TimeDimension"},
+                ]
+            })
+        )
+        respx.get(f"{BASE}/ODataApi/odata/37296eng/TypedDataSet").mock(
+            return_value=httpx.Response(200, json={"value": []})
+        )
+        client = Client()
+        df = client.get_data("37296eng")
+        assert isinstance(df, pl.DataFrame)
+        assert df.shape[0] == 0

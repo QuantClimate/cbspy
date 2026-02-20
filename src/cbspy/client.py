@@ -6,6 +6,7 @@ import httpx
 import polars as pl
 
 from cbspy._odata import ODataClient
+from cbspy._periods import decode_period
 from cbspy.models import Column, TableMetadata
 
 _DEFAULT_BASE_URL = "https://opendata.cbs.nl"
@@ -73,6 +74,45 @@ class Client:
             frequency=info.get("Frequency", ""),
             properties=columns,
         )
+
+    def get_data(self, table_id: str, periods: list[str] | None = None) -> pl.DataFrame:
+        """Fetch dataset as a Polars DataFrame with human-readable column names.
+
+        Args:
+            table_id: CBS table identifier (e.g. "37296eng").
+            periods: Optional list of CBS period codes to filter by.
+
+        Returns:
+            Polars DataFrame with resolved column names and decoded periods.
+        """
+        prop_rows = self._odata.get_json(table_id, "DataProperties")
+        column_map = {p["Key"]: p.get("Title", p["Key"]) for p in prop_rows}
+        period_keys = {p["Key"] for p in prop_rows if p.get("Type") == "TimeDimension"}
+
+        params: dict[str, str] | None = None
+        if periods:
+            period_filter = " or ".join(f"Periods eq '{p}'" for p in periods)
+            params = {"$filter": period_filter}
+
+        data_rows = self._odata.get_json(table_id, "TypedDataSet", params=params)
+
+        if not data_rows:
+            columns = {column_map.get(k, k): [] for k in column_map}
+            return pl.DataFrame(columns)
+
+        renamed_rows = []
+        for row in data_rows:
+            renamed: dict[str, Any] = {}
+            for key, value in row.items():
+                if key == "ID":
+                    continue
+                new_key = column_map.get(key, key)
+                if key in period_keys:
+                    value = decode_period(str(value))
+                renamed[new_key] = value
+            renamed_rows.append(renamed)
+
+        return pl.DataFrame(renamed_rows)
 
     @staticmethod
     def _parse_column(prop: dict[str, Any]) -> Column:
