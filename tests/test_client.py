@@ -5,13 +5,13 @@ import respx
 
 from cbspy.client import Client
 from cbspy.exceptions import TableNotFoundError
-from cbspy.models import Column, TableMetadata
+from cbspy.models import TableMetadata
 
 BASE = "https://opendata.cbs.nl"
 
 
 def test_public_imports():
-    from cbspy import Client, Column, TableMetadata, CBSError, TableNotFoundError, APIError
+    from cbspy import APIError, CBSError, Client, Column, TableMetadata, TableNotFoundError
 
     assert Client is not None
     assert Column is not None
@@ -25,20 +25,23 @@ class TestListTables:
     @respx.mock
     def test_returns_polars_dataframe(self):
         respx.get(f"{BASE}/ODataCatalog/Tables").mock(
-            return_value=httpx.Response(200, json={
-                "value": [
-                    {
-                        "Identifier": "37296eng",
-                        "Title": "Population; key figures",
-                        "ShortDescription": "Population stats",
-                        "Period": "1950 - 2022",
-                        "Frequency": "Perjaar",
-                        "RecordCount": 73,
-                        "Modified": "2023-04-12T02:00:00",
-                        "Language": "en",
-                    }
-                ]
-            })
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "Identifier": "37296eng",
+                            "Title": "Population; key figures",
+                            "ShortDescription": "Population stats",
+                            "Period": "1950 - 2022",
+                            "Frequency": "Perjaar",
+                            "RecordCount": 73,
+                            "Modified": "2023-04-12T02:00:00",
+                            "Language": "en",
+                        }
+                    ]
+                },
+            )
         )
         client = Client()
         df = client.list_tables()
@@ -50,12 +53,23 @@ class TestListTables:
     @respx.mock
     def test_filters_by_language(self):
         respx.get(f"{BASE}/ODataCatalog/Tables").mock(
-            return_value=httpx.Response(200, json={
-                "value": [
-                    {"Identifier": "37296eng", "Title": "Pop", "ShortDescription": "",
-                     "Period": "", "Frequency": "", "RecordCount": 1, "Modified": "", "Language": "en"},
-                ]
-            })
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "Identifier": "37296eng",
+                            "Title": "Pop",
+                            "ShortDescription": "",
+                            "Period": "",
+                            "Frequency": "",
+                            "RecordCount": 1,
+                            "Modified": "",
+                            "Language": "en",
+                        },
+                    ]
+                },
+            )
         )
         client = Client()
         df = client.list_tables(language="en")
@@ -66,39 +80,47 @@ class TestGetMetadata:
     @respx.mock
     def test_returns_table_metadata(self):
         respx.get(f"{BASE}/ODataApi/odata/37296eng/TableInfos").mock(
-            return_value=httpx.Response(200, json={
-                "value": [{
-                    "Title": "Population; key figures",
-                    "ShortDescription": "A description.",
-                    "Identifier": "37296eng",
-                    "Period": "1950 - 2022",
-                    "Frequency": "Perjaar",
-                }]
-            })
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "Title": "Population; key figures",
+                            "ShortDescription": "A description.",
+                            "Identifier": "37296eng",
+                            "Period": "1950 - 2022",
+                            "Frequency": "Perjaar",
+                        }
+                    ]
+                },
+            )
         )
         respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
-            return_value=httpx.Response(200, json={
-                "value": [
-                    {
-                        "odata.type": "Cbs.OData.TimeDimension",
-                        "ID": 0,
-                        "Key": "Periods",
-                        "Title": "Periods",
-                        "Description": "Time periods",
-                        "Type": "TimeDimension",
-                    },
-                    {
-                        "odata.type": "Cbs.OData.Topic",
-                        "ID": 1,
-                        "Key": "TotalPopulation_1",
-                        "Title": "Total population",
-                        "Description": "The total population.",
-                        "Type": "Topic",
-                        "Datatype": "Double",
-                        "Unit": "number",
-                    },
-                ]
-            })
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "odata.type": "Cbs.OData.TimeDimension",
+                            "ID": 0,
+                            "Key": "Periods",
+                            "Title": "Periods",
+                            "Description": "Time periods",
+                            "Type": "TimeDimension",
+                        },
+                        {
+                            "odata.type": "Cbs.OData.Topic",
+                            "ID": 1,
+                            "Key": "TotalPopulation_1",
+                            "Title": "Total population",
+                            "Description": "The total population.",
+                            "Type": "Topic",
+                            "Datatype": "Double",
+                            "Unit": "number",
+                        },
+                    ]
+                },
+            )
         )
         client = Client()
         meta = client.get_metadata("37296eng")
@@ -112,9 +134,7 @@ class TestGetMetadata:
 
     @respx.mock
     def test_not_found_raises(self):
-        respx.get(f"{BASE}/ODataApi/odata/FAKE/TableInfos").mock(
-            return_value=httpx.Response(404, text="Not found")
-        )
+        respx.get(f"{BASE}/ODataApi/odata/FAKE/TableInfos").mock(return_value=httpx.Response(404, text="Not found"))
         client = Client()
         with pytest.raises(TableNotFoundError):
             client.get_metadata("FAKE")
@@ -124,26 +144,52 @@ class TestGetData:
     @respx.mock
     def test_returns_dataframe_with_resolved_columns(self):
         respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
-            return_value=httpx.Response(200, json={
-                "value": [
-                    {"odata.type": "Cbs.OData.TimeDimension", "ID": 0, "Key": "Periods",
-                     "Title": "Periods", "Description": "", "Type": "TimeDimension"},
-                    {"odata.type": "Cbs.OData.Topic", "ID": 1, "Key": "TotalPopulation_1",
-                     "Title": "Total population", "Description": "", "Type": "Topic",
-                     "Datatype": "Double", "Unit": "number"},
-                    {"odata.type": "Cbs.OData.Topic", "ID": 2, "Key": "Males_2",
-                     "Title": "Males", "Description": "", "Type": "Topic",
-                     "Datatype": "Long", "Unit": "number"},
-                ]
-            })
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "odata.type": "Cbs.OData.TimeDimension",
+                            "ID": 0,
+                            "Key": "Periods",
+                            "Title": "Periods",
+                            "Description": "",
+                            "Type": "TimeDimension",
+                        },
+                        {
+                            "odata.type": "Cbs.OData.Topic",
+                            "ID": 1,
+                            "Key": "TotalPopulation_1",
+                            "Title": "Total population",
+                            "Description": "",
+                            "Type": "Topic",
+                            "Datatype": "Double",
+                            "Unit": "number",
+                        },
+                        {
+                            "odata.type": "Cbs.OData.Topic",
+                            "ID": 2,
+                            "Key": "Males_2",
+                            "Title": "Males",
+                            "Description": "",
+                            "Type": "Topic",
+                            "Datatype": "Long",
+                            "Unit": "number",
+                        },
+                    ]
+                },
+            )
         )
         respx.get(f"{BASE}/ODataApi/odata/37296eng/TypedDataSet").mock(
-            return_value=httpx.Response(200, json={
-                "value": [
-                    {"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": 17811291, "Males_2": 8864},
-                    {"ID": 1, "Periods": "2022JJ00", "TotalPopulation_1": 17590672, "Males_2": 8757},
-                ]
-            })
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": 17811291, "Males_2": 8864},
+                        {"ID": 1, "Periods": "2022JJ00", "TotalPopulation_1": 17590672, "Males_2": 8757},
+                    ]
+                },
+            )
         )
         client = Client()
         df = client.get_data("37296eng")
@@ -157,22 +203,41 @@ class TestGetData:
     @respx.mock
     def test_get_data_with_periods_filter(self):
         respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
-            return_value=httpx.Response(200, json={
-                "value": [
-                    {"odata.type": "Cbs.OData.TimeDimension", "ID": 0, "Key": "Periods",
-                     "Title": "Periods", "Description": "", "Type": "TimeDimension"},
-                    {"odata.type": "Cbs.OData.Topic", "ID": 1, "Key": "TotalPopulation_1",
-                     "Title": "Total population", "Description": "", "Type": "Topic",
-                     "Datatype": "Double", "Unit": "number"},
-                ]
-            })
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "odata.type": "Cbs.OData.TimeDimension",
+                            "ID": 0,
+                            "Key": "Periods",
+                            "Title": "Periods",
+                            "Description": "",
+                            "Type": "TimeDimension",
+                        },
+                        {
+                            "odata.type": "Cbs.OData.Topic",
+                            "ID": 1,
+                            "Key": "TotalPopulation_1",
+                            "Title": "Total population",
+                            "Description": "",
+                            "Type": "Topic",
+                            "Datatype": "Double",
+                            "Unit": "number",
+                        },
+                    ]
+                },
+            )
         )
         respx.get(f"{BASE}/ODataApi/odata/37296eng/TypedDataSet").mock(
-            return_value=httpx.Response(200, json={
-                "value": [
-                    {"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": 17811291},
-                ]
-            })
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": 17811291},
+                    ]
+                },
+            )
         )
         client = Client()
         df = client.get_data("37296eng", periods=["2023JJ00"])
@@ -181,12 +246,21 @@ class TestGetData:
     @respx.mock
     def test_get_data_empty_dataset(self):
         respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
-            return_value=httpx.Response(200, json={
-                "value": [
-                    {"odata.type": "Cbs.OData.TimeDimension", "ID": 0, "Key": "Periods",
-                     "Title": "Periods", "Description": "", "Type": "TimeDimension"},
-                ]
-            })
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "odata.type": "Cbs.OData.TimeDimension",
+                            "ID": 0,
+                            "Key": "Periods",
+                            "Title": "Periods",
+                            "Description": "",
+                            "Type": "TimeDimension",
+                        },
+                    ]
+                },
+            )
         )
         respx.get(f"{BASE}/ODataApi/odata/37296eng/TypedDataSet").mock(
             return_value=httpx.Response(200, json={"value": []})

@@ -39,17 +39,15 @@ class Client:
             frequency, record_count, modified.
         """
         rows = self._odata.get_catalog(language=language)
-        return pl.DataFrame(
-            {
-                "id": [r["Identifier"] for r in rows],
-                "title": [r["Title"] for r in rows],
-                "description": [r.get("ShortDescription", "") for r in rows],
-                "period": [r.get("Period", "") for r in rows],
-                "frequency": [r.get("Frequency", "") for r in rows],
-                "record_count": [r.get("RecordCount", 0) for r in rows],
-                "modified": [r.get("Modified", "") for r in rows],
-            }
-        )
+        return pl.DataFrame({
+            "id": [r["Identifier"] for r in rows],
+            "title": [r["Title"] for r in rows],
+            "description": [r.get("ShortDescription", "") for r in rows],
+            "period": [r.get("Period", "") for r in rows],
+            "frequency": [r.get("Frequency", "") for r in rows],
+            "record_count": [r.get("RecordCount", 0) for r in rows],
+            "modified": [r.get("Modified", "") for r in rows],
+        })
 
     def get_metadata(self, table_id: str) -> TableMetadata:
         """Get metadata and column definitions for a CBS table.

@@ -11,7 +11,7 @@ class Column(BaseModel):
     datatype: str
     description: str
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def display_name(self) -> str:
         """Return English name if available, otherwise Dutch."""
