@@ -1,0 +1,52 @@
+site_name: cbspy
+repo_url: https://github.com/thomaspinder/cbspy
+site_url: https://thomaspinder.github.io/cbspy
+site_description: A repository for interacting with and manipulating data from CBS Statline.
+site_author: Thomas Pinder
+edit_uri: edit/main/docs/
+repo_name: thomaspinder/cbspy
+copyright: Maintained by <a href="https://thomaspinder.com">thomaspinder</a>.
+
+nav:
+  - Home: index.md
+  - Modules: modules.md
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["src/cbspy"]
+theme:
+  name: material
+  feature:
+    tabs: true
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: white
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/thomaspinder/cbspy
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/cbspy
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
