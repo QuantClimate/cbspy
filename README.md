@@ -3,71 +3,54 @@
 [![Release](https://img.shields.io/github/v/release/thomaspinder/cbspy)](https://img.shields.io/github/v/release/thomaspinder/cbspy)
 [![Build status](https://img.shields.io/github/actions/workflow/status/thomaspinder/cbspy/main.yml?branch=main)](https://github.com/thomaspinder/cbspy/actions/workflows/main.yml?query=branch%3Amain)
 [![codecov](https://codecov.io/gh/thomaspinder/cbspy/branch/main/graph/badge.svg)](https://codecov.io/gh/thomaspinder/cbspy)
-[![Commit activity](https://img.shields.io/github/commit-activity/m/thomaspinder/cbspy)](https://img.shields.io/github/commit-activity/m/thomaspinder/cbspy)
 [![License](https://img.shields.io/github/license/thomaspinder/cbspy)](https://img.shields.io/github/license/thomaspinder/cbspy)
 
-A repository for interacting with and manipulating data from CBS Statline.
+A modern Python client for [CBS Statline](https://opendata.cbs.nl) open data that returns Polars DataFrames with human-readable column names.
 
 - **Github repository**: <https://github.com/thomaspinder/cbspy/>
-- **Documentation** <https://thomaspinder.github.io/cbspy/>
+- **Documentation**: <https://thomaspinder.github.io/cbspy/>
 
-## Getting started with your project
-
-### 1. Create a New Repository
-
-First, create a repository on GitHub with the same name as this project, and then run the following commands:
+## Installation
 
 ```bash
-git init -b main
-git add .
-git commit -m "init commit"
-git remote add origin git@github.com:thomaspinder/cbspy.git
-git push -u origin main
+pip install cbspy
 ```
 
-### 2. Set Up Your Development Environment
+## Quick Start
 
-Then, install the environment and the pre-commit hooks with
+```python
+import cbspy
+
+client = cbspy.Client()
+
+# Discover available tables
+tables = client.list_tables(language="en")
+print(tables.head())
+# shape: (5, 7)
+# id, title, description, period, frequency, record_count, modified
+
+# Inspect a table's structure
+meta = client.get_metadata("37296eng")
+for col in meta.properties:
+    print(f"{col.id}: {col.display_name} ({col.unit})")
+
+# Fetch data with human-readable column names
+df = client.get_data("37296eng")
+print(df.head())
+# Columns like "Total population", "Males", "Females" instead of
+# "TotalPopulation_1", "Males_2", "Females_3"
+
+# Filter by time period
+df = client.get_data("37296eng", periods=["2022JJ00", "2023JJ00"])
+```
+
+## Development
 
 ```bash
-make install
+make install    # Create venv and install pre-commit hooks
+make test       # Run tests with coverage
+make check      # Run linting and type checking
 ```
-
-This will also generate your `uv.lock` file
-
-### 3. Run the pre-commit hooks
-
-Initially, the CI/CD pipeline might be failing due to formatting issues. To resolve those run:
-
-```bash
-uv run pre-commit run -a
-```
-
-### 4. Commit the changes
-
-Lastly, commit the changes made by the two steps above to your repository.
-
-```bash
-git add .
-git commit -m 'Fix formatting issues'
-git push origin main
-```
-
-You are now ready to start development on your project!
-The CI/CD pipeline will be triggered when you open a pull request, merge to main, or when you create a new release.
-
-To finalize the set-up for publishing to PyPI, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/publishing/#set-up-for-pypi).
-For activating the automatic documentation with MkDocs, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/mkdocs/#enabling-the-documentation-on-github).
-To enable the code coverage reports, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/codecov/).
-
-## Releasing a new version
-
-- Create an API Token on [PyPI](https://pypi.org/).
-- Add the API Token to your projects secrets with the name `PYPI_TOKEN` by visiting [this page](https://github.com/thomaspinder/cbspy/settings/secrets/actions/new).
-- Create a [new release](https://github.com/thomaspinder/cbspy/releases/new) on Github.
-- Create a new tag in the form `*.*.*`.
-
-For more details, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/cicd/#how-to-trigger-a-release).
 
 ---
 
