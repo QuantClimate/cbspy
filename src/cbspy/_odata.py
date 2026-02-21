@@ -63,9 +63,7 @@ class ODataClient:
 
         return all_rows
 
-    def _request_with_retry(
-        self, url: str, params: dict[str, str], table_id: str
-    ) -> httpx.Response:
+    def _request_with_retry(self, url: str, params: dict[str, str], table_id: str) -> httpx.Response:
         """Make an HTTP GET with retry on transient errors."""
         for attempt in range(_MAX_RETRIES + 1):
             try:
