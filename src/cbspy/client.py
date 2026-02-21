@@ -91,6 +91,7 @@ class Client:
         periods: list[str] | None = None,
         filters: dict[str, list[str]] | str | None = None,
         columns: list[str] | None = None,
+        typed: bool = True,
     ) -> pl.DataFrame:
         """Fetch dataset as a Polars DataFrame with human-readable column names.
 
@@ -103,6 +104,9 @@ class Client:
             columns: Optional list of columns to retrieve. Accepts human-readable
                 names (e.g. "Total population") or CBS keys (e.g. "TotalPopulation_1").
                 Fetches all columns if None.
+            typed: If True (default), fetch TypedDataSet where CBS replaces statistical
+                symbols with null. If False, fetch UntypedDataSet preserving symbols
+                like "." (not applicable), "x" (suppressed), "-" (nil).
 
         Returns:
             Polars DataFrame with resolved column names and decoded periods.
@@ -121,7 +125,8 @@ class Client:
             select_keys = [title_to_key.get(c, c) for c in columns]
             params["$select"] = ",".join(select_keys)
 
-        data_rows = self._odata.get_json(table_id, "TypedDataSet", params=params or None)
+        resource = "TypedDataSet" if typed else "UntypedDataSet"
+        data_rows = self._odata.get_json(table_id, resource, params=params or None)
 
         if not data_rows:
             empty_cols = {column_map.get(k, k): [] for k in column_map}
