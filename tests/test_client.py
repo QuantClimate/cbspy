@@ -271,6 +271,115 @@ class TestGetData:
         assert df.shape[0] == 0
 
 
+class TestGetDataFilters:
+    """Tests for the generic filters parameter on get_data()."""
+
+    def _mock_props(self):
+        """Mock DataProperties with a time dimension and a geo dimension."""
+        respx.get(f"{BASE}/ODataFeed/OData/71450ned/DataProperties").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {"Key": "Perioden", "Title": "Periods", "Type": "TimeDimension"},
+                        {"Key": "RegioS", "Title": "Region", "Type": "GeoDimension"},
+                        {
+                            "Key": "Bevolking_1",
+                            "Title": "Population",
+                            "Type": "Topic",
+                            "Datatype": "Long",
+                            "Unit": "number",
+                        },
+                    ]
+                },
+            )
+        )
+
+    @respx.mock
+    def test_filters_dict_single_dimension(self):
+        self._mock_props()
+        route = respx.get(f"{BASE}/ODataFeed/OData/71450ned/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200, json={"value": [{"ID": 0, "Perioden": "2023JJ00", "RegioS": "GM0363    ", "Bevolking_1": 921402}]}
+            )
+        )
+        with Client() as client:
+            df = client.get_data("71450ned", filters={"RegioS": ["GM0363"]})
+        assert df.shape[0] == 1
+        sent_params = dict(route.calls[0].request.url.params)
+        assert "$filter" in sent_params
+        assert "RegioS" in sent_params["$filter"]
+
+    @respx.mock
+    def test_filters_dict_multiple_dimensions(self):
+        self._mock_props()
+        route = respx.get(f"{BASE}/ODataFeed/OData/71450ned/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200, json={"value": [{"ID": 0, "Perioden": "2023JJ00", "RegioS": "GM0363    ", "Bevolking_1": 921402}]}
+            )
+        )
+        with Client() as client:
+            client.get_data("71450ned", filters={"RegioS": ["GM0363"], "Perioden": ["2023JJ00"]})
+        sent_params = dict(route.calls[0].request.url.params)
+        filter_str = sent_params["$filter"]
+        assert "RegioS" in filter_str
+        assert "Perioden" in filter_str
+
+    @respx.mock
+    def test_filters_raw_string(self):
+        self._mock_props()
+        route = respx.get(f"{BASE}/ODataFeed/OData/71450ned/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200, json={"value": [{"ID": 0, "Perioden": "2023JJ00", "RegioS": "GM0363    ", "Bevolking_1": 921402}]}
+            )
+        )
+        with Client() as client:
+            client.get_data("71450ned", filters="RegioS eq 'GM0363'")
+        sent_params = dict(route.calls[0].request.url.params)
+        assert sent_params["$filter"] == "RegioS eq 'GM0363'"
+
+    @respx.mock
+    def test_periods_param_still_works(self):
+        self._mock_props()
+        route = respx.get(f"{BASE}/ODataFeed/OData/71450ned/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200, json={"value": [{"ID": 0, "Perioden": "2023JJ00", "RegioS": "GM0363    ", "Bevolking_1": 921402}]}
+            )
+        )
+        with Client() as client:
+            client.get_data("71450ned", periods=["2023JJ00"])
+        sent_params = dict(route.calls[0].request.url.params)
+        assert "Perioden" in sent_params["$filter"]
+
+    @respx.mock
+    def test_filters_and_periods_combined(self):
+        self._mock_props()
+        route = respx.get(f"{BASE}/ODataFeed/OData/71450ned/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200, json={"value": [{"ID": 0, "Perioden": "2023JJ00", "RegioS": "GM0363    ", "Bevolking_1": 921402}]}
+            )
+        )
+        with Client() as client:
+            client.get_data("71450ned", periods=["2023JJ00"], filters={"RegioS": ["GM0363"]})
+        sent_params = dict(route.calls[0].request.url.params)
+        filter_str = sent_params["$filter"]
+        assert "RegioS" in filter_str
+        assert "Perioden" in filter_str
+
+    @respx.mock
+    def test_no_filters(self):
+        self._mock_props()
+        route = respx.get(f"{BASE}/ODataFeed/OData/71450ned/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200, json={"value": [{"ID": 0, "Perioden": "2023JJ00", "RegioS": "GM0363    ", "Bevolking_1": 921402}]}
+            )
+        )
+        with Client() as client:
+            client.get_data("71450ned")
+        sent_params = dict(route.calls[0].request.url.params)
+        assert "$filter" not in sent_params
+
+
 class TestClientLifecycle:
     def test_close_closes_owned_http_client(self):
         client = Client()
