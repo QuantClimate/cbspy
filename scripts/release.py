@@ -19,9 +19,7 @@ def run(cmd: str) -> str:
 def main() -> None:
     bump = sys.argv[1] if len(sys.argv) > 1 else "patch"
     if bump not in ("major", "minor", "patch"):
-        print(
-            f"Invalid bump type: {bump}. Use major, minor, or patch.", file=sys.stderr
-        )
+        print(f"Invalid bump type: {bump}. Use major, minor, or patch.", file=sys.stderr)
         sys.exit(1)
 
     # Check for clean working tree (aside from what we're about to change)
