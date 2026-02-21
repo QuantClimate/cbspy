@@ -29,7 +29,7 @@ def main() -> None:
         sys.exit(1)
 
     run(f"uv version --bump {bump}")
-    version = run("uv version")
+    version = run("uv version").split()[-1]
     tag = f"v{version}"
 
     print(f"Releasing {tag}")
