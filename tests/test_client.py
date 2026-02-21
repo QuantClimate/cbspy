@@ -380,6 +380,105 @@ class TestGetDataFilters:
         assert "$filter" not in sent_params
 
 
+class TestGetDataColumns:
+    """Tests for the columns ($select) parameter on get_data()."""
+
+    @respx.mock
+    def test_columns_sends_select_param(self):
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {"Key": "Periods", "Title": "Periods", "Type": "TimeDimension"},
+                        {
+                            "Key": "TotalPopulation_1",
+                            "Title": "Total population",
+                            "Type": "Topic",
+                            "Datatype": "Double",
+                            "Unit": "number",
+                        },
+                        {"Key": "Males_2", "Title": "Males", "Type": "Topic", "Datatype": "Long", "Unit": "number"},
+                    ]
+                },
+            )
+        )
+        route = respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200,
+                json={"value": [{"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": 17811291}]},
+            )
+        )
+        with Client() as client:
+            client.get_data("37296eng", columns=["Periods", "Total population"])
+        sent_params = dict(route.calls[0].request.url.params)
+        assert "$select" in sent_params
+        select_val = sent_params["$select"]
+        assert "Periods" in select_val
+        assert "TotalPopulation_1" in select_val
+        assert "Males_2" not in select_val
+
+    @respx.mock
+    def test_columns_with_cbs_keys(self):
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {"Key": "Periods", "Title": "Periods", "Type": "TimeDimension"},
+                        {
+                            "Key": "TotalPopulation_1",
+                            "Title": "Total population",
+                            "Type": "Topic",
+                            "Datatype": "Double",
+                            "Unit": "number",
+                        },
+                    ]
+                },
+            )
+        )
+        route = respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200,
+                json={"value": [{"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": 17811291}]},
+            )
+        )
+        with Client() as client:
+            client.get_data("37296eng", columns=["Periods", "TotalPopulation_1"])
+        sent_params = dict(route.calls[0].request.url.params)
+        assert "TotalPopulation_1" in sent_params["$select"]
+
+    @respx.mock
+    def test_columns_none_sends_no_select(self):
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {"Key": "Periods", "Title": "Periods", "Type": "TimeDimension"},
+                        {
+                            "Key": "TotalPopulation_1",
+                            "Title": "Total population",
+                            "Type": "Topic",
+                            "Datatype": "Double",
+                            "Unit": "number",
+                        },
+                    ]
+                },
+            )
+        )
+        route = respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200,
+                json={"value": [{"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": 17811291}]},
+            )
+        )
+        with Client() as client:
+            client.get_data("37296eng")
+        sent_params = dict(route.calls[0].request.url.params)
+        assert "$select" not in sent_params
+
+
 class TestClientLifecycle:
     def test_close_closes_owned_http_client(self):
         client = Client()

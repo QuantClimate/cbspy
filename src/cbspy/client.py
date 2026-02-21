@@ -90,6 +90,7 @@ class Client:
         table_id: str,
         periods: list[str] | None = None,
         filters: dict[str, list[str]] | str | None = None,
+        columns: list[str] | None = None,
     ) -> pl.DataFrame:
         """Fetch dataset as a Polars DataFrame with human-readable column names.
 
@@ -99,6 +100,9 @@ class Client:
             filters: Optional dimension filters. Either a raw OData $filter string
                 or a dict mapping dimension keys to value lists, e.g.
                 ``{"RegioS": ["GM0363", "GM0599"]}``.
+            columns: Optional list of columns to retrieve. Accepts human-readable
+                names (e.g. "Total population") or CBS keys (e.g. "TotalPopulation_1").
+                Fetches all columns if None.
 
         Returns:
             Polars DataFrame with resolved column names and decoded periods.
@@ -108,15 +112,20 @@ class Client:
         period_keys = {p["Key"] for p in prop_rows if p.get("Type") == "TimeDimension"}
 
         filter_str = self._build_filter(periods, filters, period_keys)
-        params: dict[str, str] | None = None
+        params: dict[str, str] = {}
         if filter_str:
-            params = {"$filter": filter_str}
+            params["$filter"] = filter_str
 
-        data_rows = self._odata.get_json(table_id, "TypedDataSet", params=params)
+        if columns is not None:
+            title_to_key = {v: k for k, v in column_map.items()}
+            select_keys = [title_to_key.get(c, c) for c in columns]
+            params["$select"] = ",".join(select_keys)
+
+        data_rows = self._odata.get_json(table_id, "TypedDataSet", params=params or None)
 
         if not data_rows:
-            columns = {column_map.get(k, k): [] for k in column_map}
-            return pl.DataFrame(columns)
+            empty_cols = {column_map.get(k, k): [] for k in column_map}
+            return pl.DataFrame(empty_cols)
 
         renamed_rows = []
         for row in data_rows:
