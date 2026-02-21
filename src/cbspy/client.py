@@ -85,12 +85,28 @@ class Client:
             properties=columns,
         )
 
-    def get_data(self, table_id: str, periods: list[str] | None = None) -> pl.DataFrame:
+    def get_data(
+        self,
+        table_id: str,
+        periods: list[str] | None = None,
+        filters: dict[str, list[str]] | str | None = None,
+        columns: list[str] | None = None,
+        typed: bool = True,
+    ) -> pl.DataFrame:
         """Fetch dataset as a Polars DataFrame with human-readable column names.
 
         Args:
             table_id: CBS table identifier (e.g. "37296eng").
             periods: Optional list of CBS period codes to filter by.
+            filters: Optional dimension filters. Either a raw OData $filter string
+                or a dict mapping dimension keys to value lists, e.g.
+                ``{"RegioS": ["GM0363", "GM0599"]}``.
+            columns: Optional list of columns to retrieve. Accepts human-readable
+                names (e.g. "Total population") or CBS keys (e.g. "TotalPopulation_1").
+                Fetches all columns if None.
+            typed: If True (default), fetch TypedDataSet where CBS replaces statistical
+                symbols with null. If False, fetch UntypedDataSet preserving symbols
+                like "." (not applicable), "x" (suppressed), "-" (nil).
 
         Returns:
             Polars DataFrame with resolved column names and decoded periods.
@@ -99,16 +115,22 @@ class Client:
         column_map = {p["Key"]: p.get("Title", p["Key"]) for p in prop_rows}
         period_keys = {p["Key"] for p in prop_rows if p.get("Type") == "TimeDimension"}
 
-        params: dict[str, str] | None = None
-        if periods:
-            period_filter = " or ".join(f"Periods eq '{p}'" for p in periods)
-            params = {"$filter": period_filter}
+        filter_str = self._build_filter(periods, filters, period_keys)
+        params: dict[str, str] = {}
+        if filter_str:
+            params["$filter"] = filter_str
 
-        data_rows = self._odata.get_json(table_id, "TypedDataSet", params=params)
+        if columns is not None:
+            title_to_key = {v: k for k, v in column_map.items()}
+            select_keys = [title_to_key.get(c, c) for c in columns]
+            params["$select"] = ",".join(select_keys)
+
+        resource = "TypedDataSet" if typed else "UntypedDataSet"
+        data_rows = self._odata.get_json(table_id, resource, params=params or None)
 
         if not data_rows:
-            columns = {column_map.get(k, k): [] for k in column_map}
-            return pl.DataFrame(columns)
+            empty_cols = {column_map.get(k, k): [] for k in column_map}
+            return pl.DataFrame(empty_cols)
 
         renamed_rows = []
         for row in data_rows:
@@ -123,6 +145,29 @@ class Client:
             renamed_rows.append(renamed)
 
         return pl.DataFrame(renamed_rows)
+
+    @staticmethod
+    def _build_filter(
+        periods: list[str] | None,
+        filters: dict[str, list[str]] | str | None,
+        period_keys: set[str],
+    ) -> str:
+        """Compile periods and filters into an OData $filter string."""
+        parts: list[str] = []
+
+        if periods and period_keys:
+            period_key = next(iter(period_keys))
+            clause = " or ".join(f"{period_key} eq '{p}'" for p in periods)
+            parts.append(f"({clause})")
+
+        if isinstance(filters, str):
+            parts.append(filters)
+        elif isinstance(filters, dict):
+            for dim, values in filters.items():
+                clause = " or ".join(f"{dim} eq '{v}'" for v in values)
+                parts.append(f"({clause})")
+
+        return " and ".join(parts)
 
     @staticmethod
     def _parse_column(prop: dict[str, Any]) -> Column:

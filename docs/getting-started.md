@@ -56,7 +56,7 @@ print(f"Period: {meta.period}")
 print()
 
 for col in meta.properties:
-    print(f"  {col.display_name} ({col.unit})")
+    print(f"  {col.name} ({col.unit})")
 ```
 
 ```
@@ -70,7 +70,7 @@ Period: 1950 - 2023
   ...
 ```
 
-Each `Column` object has `id`, `name`, `dutch_name`, `unit`, `datatype`, `description`, and a `display_name` computed property that prefers the English name.
+Each `Column` object has `id`, `name`, `unit`, `datatype`, and `description`.
 
 ## Fetching data
 
@@ -94,6 +94,46 @@ shape: (2, 28)
 ```
 
 Period codes like `2022JJ00` are automatically decoded to `2022`. Quarterly periods (`2023KW01`) become `2023 Q1`, and monthly periods (`2023MM03`) become `2023 March`.
+
+## Filtering by dimension
+
+By default, `get_data()` downloads the entire table. Use `periods` to filter by time, or `filters` to filter on any dimension:
+
+```python
+# Filter by region and period
+df = client.get_data(
+    "71450ned",
+    filters={"RegioS": ["GM0363", "GM0599"]},
+    periods=["2023JJ00"],
+)
+```
+
+You can also pass a raw OData filter string:
+
+```python
+df = client.get_data("71450ned", filters="RegioS eq 'GM0363'")
+```
+
+## Selecting columns
+
+Many CBS tables have dozens of columns. Use `columns` to fetch only what you need:
+
+```python
+df = client.get_data(
+    "37296eng",
+    columns=["Periods", "Total population", "Males"],
+)
+```
+
+You can use either human-readable column names or CBS internal keys.
+
+## Preserving statistical symbols
+
+By default, CBS replaces missing-data symbols with `null`. To preserve the original symbols (`.` = not applicable, `x` = suppressed, `-` = nil), pass `typed=False`:
+
+```python
+df = client.get_data("37296eng", typed=False)
+```
 
 ## Error handling
 

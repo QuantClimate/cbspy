@@ -11,7 +11,7 @@ BASE = "https://opendata.cbs.nl"
 class TestGetJson:
     @respx.mock
     def test_returns_value_array(self):
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/TypedDataSet").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
             return_value=httpx.Response(200, json={"value": [{"ID": 0, "Periods": "2023JJ00"}]})
         )
         client = ODataClient(base_url=BASE, http_client=httpx.Client())
@@ -23,7 +23,7 @@ class TestGetJson:
             200,
             json={
                 "value": [{"ID": 0}],
-                "odata.nextLink": f"{BASE}/ODataApi/odata/37296eng/TypedDataSet?$skip=1",
+                "odata.nextLink": f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet?$skip=1",
             },
         )
         page2 = httpx.Response(
@@ -40,14 +40,14 @@ class TestGetJson:
 
     @respx.mock
     def test_404_raises_table_not_found(self):
-        respx.get(f"{BASE}/ODataApi/odata/FAKE/TypedDataSet").mock(return_value=httpx.Response(404, text="Not found"))
+        respx.get(f"{BASE}/ODataFeed/OData/FAKE/TypedDataSet").mock(return_value=httpx.Response(404, text="Not found"))
         client = ODataClient(base_url=BASE, http_client=httpx.Client())
         with pytest.raises(TableNotFoundError):
             client.get_json("FAKE", "TypedDataSet")
 
     @respx.mock
     def test_500_raises_api_error(self):
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/TypedDataSet").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
             return_value=httpx.Response(500, text="Internal Server Error")
         )
         client = ODataClient(base_url=BASE, http_client=httpx.Client())

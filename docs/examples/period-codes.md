@@ -9,6 +9,7 @@ CBS encodes time periods as strings with a specific format:
 | Pattern | Example | Decoded |
 |---------|---------|---------|
 | `YYYYJJnn` | `2023JJ00` | `2023` (yearly) |
+| `YYYYHJnn` | `2023HJ01` | `2023 H1` (half-yearly) |
 | `YYYYKWnn` | `2023KW01` | `2023 Q1` (quarterly) |
 | `YYYYMMnn` | `2023MM03` | `2023 March` (monthly) |
 
@@ -25,6 +26,7 @@ _MONTHS = [
     "July", "August", "September", "October", "November", "December",
 ]
 _YEARLY = re.compile(r"^(\d{4})JJ00$")
+_HALFYEARLY = re.compile(r"^(\d{4})HJ0([12])$")
 _QUARTERLY = re.compile(r"^(\d{4})KW0([1-4])$")
 _MONTHLY = re.compile(r"^(\d{4})MM(\d{2})$")
 
@@ -33,6 +35,8 @@ def decode_period(raw: str) -> str:
     s = raw.strip()
     if m := _YEARLY.match(s):
         return m.group(1)
+    if m := _HALFYEARLY.match(s):
+        return f"{m.group(1)} H{m.group(2)}"
     if m := _QUARTERLY.match(s):
         return f"{m.group(1)} Q{m.group(2)}"
     if m := _MONTHLY.match(s):
@@ -54,6 +58,7 @@ mo.md(f"**Input:** `{period_input.value}` **&rarr;** **Output:** `{decoded}`")
 Try these examples:
 
 - `2023JJ00` (yearly)
+- `2023HJ01` (half-yearly -- H1)
 - `2023KW03` (quarterly -- Q3)
 - `2023MM12` (monthly -- December)
 - `1990JJ00` (older data)
@@ -65,6 +70,7 @@ Here is a batch of period codes and their decoded values:
 ```python {marimo}
 examples = [
     "2023JJ00", "2022JJ00", "2021JJ00",
+    "2023HJ01", "2023HJ02",
     "2023KW01", "2023KW02", "2023KW03", "2023KW04",
     "2023MM01", "2023MM06", "2023MM12",
     "unknown_format",
@@ -78,8 +84,9 @@ mo.ui.table(rows, selection=None)
 cbspy uses three regular expressions to match period codes:
 
 1. **Yearly:** `^\d{4}JJ00$` -- matches codes like `2023JJ00`. Extracts the four-digit year.
-2. **Quarterly:** `^\d{4}KW0[1-4]$` -- matches codes like `2023KW01`. Extracts year and quarter number.
-3. **Monthly:** `^\d{4}MM\d{2}$` -- matches codes like `2023MM03`. Extracts year and month number, then maps to the month name.
+2. **Half-yearly:** `^\d{4}HJ0[12]$` -- matches codes like `2023HJ01`. Extracts year and half number.
+3. **Quarterly:** `^\d{4}KW0[1-4]$` -- matches codes like `2023KW01`. Extracts year and quarter number.
+4. **Monthly:** `^\d{4}MM\d{2}$` -- matches codes like `2023MM03`. Extracts year and month number, then maps to the month name.
 
 If none of the patterns match, the original string is returned unchanged. This ensures that unexpected formats pass through without raising errors.
 

@@ -79,7 +79,7 @@ class TestListTables:
 class TestGetMetadata:
     @respx.mock
     def test_returns_table_metadata(self):
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/TableInfos").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/TableInfos").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -95,7 +95,7 @@ class TestGetMetadata:
                 },
             )
         )
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -134,7 +134,7 @@ class TestGetMetadata:
 
     @respx.mock
     def test_not_found_raises(self):
-        respx.get(f"{BASE}/ODataApi/odata/FAKE/TableInfos").mock(return_value=httpx.Response(404, text="Not found"))
+        respx.get(f"{BASE}/ODataFeed/OData/FAKE/TableInfos").mock(return_value=httpx.Response(404, text="Not found"))
         client = Client()
         with pytest.raises(TableNotFoundError):
             client.get_metadata("FAKE")
@@ -143,7 +143,7 @@ class TestGetMetadata:
 class TestGetData:
     @respx.mock
     def test_returns_dataframe_with_resolved_columns(self):
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -180,7 +180,7 @@ class TestGetData:
                 },
             )
         )
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/TypedDataSet").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -202,7 +202,7 @@ class TestGetData:
 
     @respx.mock
     def test_get_data_with_periods_filter(self):
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -229,7 +229,7 @@ class TestGetData:
                 },
             )
         )
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/TypedDataSet").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -245,7 +245,7 @@ class TestGetData:
 
     @respx.mock
     def test_get_data_empty_dataset(self):
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -262,13 +262,313 @@ class TestGetData:
                 },
             )
         )
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/TypedDataSet").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
             return_value=httpx.Response(200, json={"value": []})
         )
         client = Client()
         df = client.get_data("37296eng")
         assert isinstance(df, pl.DataFrame)
         assert df.shape[0] == 0
+
+
+class TestGetDataFilters:
+    """Tests for the generic filters parameter on get_data()."""
+
+    def _mock_props(self):
+        """Mock DataProperties with a time dimension and a geo dimension."""
+        respx.get(f"{BASE}/ODataFeed/OData/71450ned/DataProperties").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {"Key": "Perioden", "Title": "Periods", "Type": "TimeDimension"},
+                        {"Key": "RegioS", "Title": "Region", "Type": "GeoDimension"},
+                        {
+                            "Key": "Bevolking_1",
+                            "Title": "Population",
+                            "Type": "Topic",
+                            "Datatype": "Long",
+                            "Unit": "number",
+                        },
+                    ]
+                },
+            )
+        )
+
+    @respx.mock
+    def test_filters_dict_single_dimension(self):
+        self._mock_props()
+        route = respx.get(f"{BASE}/ODataFeed/OData/71450ned/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200, json={"value": [{"ID": 0, "Perioden": "2023JJ00", "RegioS": "GM0363    ", "Bevolking_1": 921402}]}
+            )
+        )
+        with Client() as client:
+            df = client.get_data("71450ned", filters={"RegioS": ["GM0363"]})
+        assert df.shape[0] == 1
+        sent_params = dict(route.calls[0].request.url.params)
+        assert "$filter" in sent_params
+        assert "RegioS" in sent_params["$filter"]
+
+    @respx.mock
+    def test_filters_dict_multiple_dimensions(self):
+        self._mock_props()
+        route = respx.get(f"{BASE}/ODataFeed/OData/71450ned/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200, json={"value": [{"ID": 0, "Perioden": "2023JJ00", "RegioS": "GM0363    ", "Bevolking_1": 921402}]}
+            )
+        )
+        with Client() as client:
+            client.get_data("71450ned", filters={"RegioS": ["GM0363"], "Perioden": ["2023JJ00"]})
+        sent_params = dict(route.calls[0].request.url.params)
+        filter_str = sent_params["$filter"]
+        assert "RegioS" in filter_str
+        assert "Perioden" in filter_str
+
+    @respx.mock
+    def test_filters_raw_string(self):
+        self._mock_props()
+        route = respx.get(f"{BASE}/ODataFeed/OData/71450ned/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200, json={"value": [{"ID": 0, "Perioden": "2023JJ00", "RegioS": "GM0363    ", "Bevolking_1": 921402}]}
+            )
+        )
+        with Client() as client:
+            client.get_data("71450ned", filters="RegioS eq 'GM0363'")
+        sent_params = dict(route.calls[0].request.url.params)
+        assert sent_params["$filter"] == "RegioS eq 'GM0363'"
+
+    @respx.mock
+    def test_periods_param_still_works(self):
+        self._mock_props()
+        route = respx.get(f"{BASE}/ODataFeed/OData/71450ned/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200, json={"value": [{"ID": 0, "Perioden": "2023JJ00", "RegioS": "GM0363    ", "Bevolking_1": 921402}]}
+            )
+        )
+        with Client() as client:
+            client.get_data("71450ned", periods=["2023JJ00"])
+        sent_params = dict(route.calls[0].request.url.params)
+        assert "Perioden" in sent_params["$filter"]
+
+    @respx.mock
+    def test_filters_and_periods_combined(self):
+        self._mock_props()
+        route = respx.get(f"{BASE}/ODataFeed/OData/71450ned/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200, json={"value": [{"ID": 0, "Perioden": "2023JJ00", "RegioS": "GM0363    ", "Bevolking_1": 921402}]}
+            )
+        )
+        with Client() as client:
+            client.get_data("71450ned", periods=["2023JJ00"], filters={"RegioS": ["GM0363"]})
+        sent_params = dict(route.calls[0].request.url.params)
+        filter_str = sent_params["$filter"]
+        assert "RegioS" in filter_str
+        assert "Perioden" in filter_str
+
+    @respx.mock
+    def test_no_filters(self):
+        self._mock_props()
+        route = respx.get(f"{BASE}/ODataFeed/OData/71450ned/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200, json={"value": [{"ID": 0, "Perioden": "2023JJ00", "RegioS": "GM0363    ", "Bevolking_1": 921402}]}
+            )
+        )
+        with Client() as client:
+            client.get_data("71450ned")
+        sent_params = dict(route.calls[0].request.url.params)
+        assert "$filter" not in sent_params
+
+
+class TestGetDataColumns:
+    """Tests for the columns ($select) parameter on get_data()."""
+
+    @respx.mock
+    def test_columns_sends_select_param(self):
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {"Key": "Periods", "Title": "Periods", "Type": "TimeDimension"},
+                        {
+                            "Key": "TotalPopulation_1",
+                            "Title": "Total population",
+                            "Type": "Topic",
+                            "Datatype": "Double",
+                            "Unit": "number",
+                        },
+                        {"Key": "Males_2", "Title": "Males", "Type": "Topic", "Datatype": "Long", "Unit": "number"},
+                    ]
+                },
+            )
+        )
+        route = respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200,
+                json={"value": [{"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": 17811291}]},
+            )
+        )
+        with Client() as client:
+            client.get_data("37296eng", columns=["Periods", "Total population"])
+        sent_params = dict(route.calls[0].request.url.params)
+        assert "$select" in sent_params
+        select_val = sent_params["$select"]
+        assert "Periods" in select_val
+        assert "TotalPopulation_1" in select_val
+        assert "Males_2" not in select_val
+
+    @respx.mock
+    def test_columns_with_cbs_keys(self):
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {"Key": "Periods", "Title": "Periods", "Type": "TimeDimension"},
+                        {
+                            "Key": "TotalPopulation_1",
+                            "Title": "Total population",
+                            "Type": "Topic",
+                            "Datatype": "Double",
+                            "Unit": "number",
+                        },
+                    ]
+                },
+            )
+        )
+        route = respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200,
+                json={"value": [{"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": 17811291}]},
+            )
+        )
+        with Client() as client:
+            client.get_data("37296eng", columns=["Periods", "TotalPopulation_1"])
+        sent_params = dict(route.calls[0].request.url.params)
+        assert "TotalPopulation_1" in sent_params["$select"]
+
+    @respx.mock
+    def test_columns_none_sends_no_select(self):
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {"Key": "Periods", "Title": "Periods", "Type": "TimeDimension"},
+                        {
+                            "Key": "TotalPopulation_1",
+                            "Title": "Total population",
+                            "Type": "Topic",
+                            "Datatype": "Double",
+                            "Unit": "number",
+                        },
+                    ]
+                },
+            )
+        )
+        route = respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200,
+                json={"value": [{"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": 17811291}]},
+            )
+        )
+        with Client() as client:
+            client.get_data("37296eng")
+        sent_params = dict(route.calls[0].request.url.params)
+        assert "$select" not in sent_params
+
+
+class TestGetDataUntyped:
+    """Tests for typed=False (UntypedDataSet) support."""
+
+    @respx.mock
+    def test_typed_false_fetches_untyped_dataset(self):
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {"Key": "Periods", "Title": "Periods", "Type": "TimeDimension"},
+                        {
+                            "Key": "TotalPopulation_1",
+                            "Title": "Total population",
+                            "Type": "Topic",
+                            "Datatype": "Double",
+                            "Unit": "number",
+                        },
+                    ]
+                },
+            )
+        )
+        route = respx.get(f"{BASE}/ODataFeed/OData/37296eng/UntypedDataSet").mock(
+            return_value=httpx.Response(
+                200,
+                json={"value": [{"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": "."}]},
+            )
+        )
+        with Client() as client:
+            df = client.get_data("37296eng", typed=False)
+        assert df["Total population"][0] == "."
+        assert route.called
+
+    @respx.mock
+    def test_typed_true_fetches_typed_dataset(self):
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {"Key": "Periods", "Title": "Periods", "Type": "TimeDimension"},
+                        {
+                            "Key": "TotalPopulation_1",
+                            "Title": "Total population",
+                            "Type": "Topic",
+                            "Datatype": "Double",
+                            "Unit": "number",
+                        },
+                    ]
+                },
+            )
+        )
+        route = respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200,
+                json={"value": [{"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": 17811291}]},
+            )
+        )
+        with Client() as client:
+            client.get_data("37296eng", typed=True)
+        assert route.called
+
+    @respx.mock
+    def test_typed_default_is_true(self):
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {"Key": "Periods", "Title": "Periods", "Type": "TimeDimension"},
+                        {
+                            "Key": "TotalPopulation_1",
+                            "Title": "Total population",
+                            "Type": "Topic",
+                            "Datatype": "Double",
+                            "Unit": "number",
+                        },
+                    ]
+                },
+            )
+        )
+        route = respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
+            return_value=httpx.Response(
+                200,
+                json={"value": [{"ID": 0, "Periods": "2023JJ00", "TotalPopulation_1": 17811291}]},
+            )
+        )
+        with Client() as client:
+            client.get_data("37296eng")
+        assert route.called
 
 
 class TestClientLifecycle:
