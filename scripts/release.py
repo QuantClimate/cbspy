@@ -25,7 +25,7 @@ def main() -> None:
         sys.exit(1)
 
     # Check for clean working tree (aside from what we're about to change)
-    status = run("git status --porcelain")
+    status = run("git status --porcelain -uno")
     if status:
         print(f"Working tree is not clean:\n{status}", file=sys.stderr)
         sys.exit(1)
