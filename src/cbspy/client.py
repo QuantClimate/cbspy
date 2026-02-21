@@ -25,8 +25,20 @@ class Client:
         base_url: str = _DEFAULT_BASE_URL,
         http_client: httpx.Client | None = None,
     ) -> None:
+        self._owns_http = http_client is None
         self._http = http_client or httpx.Client()
         self._odata = ODataClient(base_url=base_url, http_client=self._http)
+
+    def close(self) -> None:
+        """Close the underlying HTTP client if this instance owns it."""
+        if self._owns_http:
+            self._http.close()
+
+    def __enter__(self) -> Client:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
 
     def list_tables(self, language: str | None = None) -> pl.DataFrame:
         """List available CBS tables.
