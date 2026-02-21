@@ -1,6 +1,6 @@
 [project]
 name = "cbspy"
-version = "0.0.1"
+version = "0.0.2"
 description = "A repository for interacting with and manipulating data from CBS Statline."
 authors = [{ name = "Thomas Pinder", email = "tompinder@live.co.uk" }]
 readme = "README.md"
