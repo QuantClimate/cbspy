@@ -118,7 +118,6 @@ class Client:
         return Column(
             id=prop.get("Key", ""),
             name=prop.get("Title", ""),
-            dutch_name=prop.get("Title", ""),
             unit=prop.get("Unit", ""),
             datatype=prop.get("Datatype", prop.get("Type", "")),
             description=prop.get("Description", ""),

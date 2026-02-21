@@ -1,4 +1,4 @@
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel
 
 
 class Column(BaseModel):
@@ -6,16 +6,9 @@ class Column(BaseModel):
 
     id: str
     name: str
-    dutch_name: str
     unit: str
     datatype: str
     description: str
-
-    @computed_field
-    @property
-    def display_name(self) -> str:
-        """Return English name if available, otherwise Dutch."""
-        return self.name if self.name else self.dutch_name
 
 
 class TableMetadata(BaseModel):

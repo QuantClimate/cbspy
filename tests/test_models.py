@@ -5,41 +5,26 @@ def test_column_creation():
     col = Column(
         id="TotalPopulation_1",
         name="Total population",
-        dutch_name="Totale bevolking",
         unit="number",
         datatype="Double",
         description="The total population.",
     )
     assert col.id == "TotalPopulation_1"
     assert col.name == "Total population"
-    assert col.dutch_name == "Totale bevolking"
     assert col.unit == "number"
     assert col.datatype == "Double"
     assert col.description == "The total population."
 
 
-def test_column_name_falls_back_to_dutch():
+def test_column_empty_name():
     col = Column(
         id="Foo_1",
         name="",
-        dutch_name="Nederlandse naam",
         unit="",
         datatype="Long",
         description="",
     )
-    assert col.display_name == "Nederlandse naam"
-
-
-def test_column_name_prefers_english():
-    col = Column(
-        id="Foo_1",
-        name="English name",
-        dutch_name="Nederlandse naam",
-        unit="",
-        datatype="Long",
-        description="",
-    )
-    assert col.display_name == "English name"
+    assert col.name == ""
 
 
 def test_table_metadata_creation():
@@ -60,7 +45,6 @@ def test_table_metadata_with_columns():
     col = Column(
         id="TotalPopulation_1",
         name="Total population",
-        dutch_name="Totale bevolking",
         unit="number",
         datatype="Double",
         description="",
