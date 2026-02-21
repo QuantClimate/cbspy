@@ -85,7 +85,7 @@ List the available columns:
 ```python
 for col in meta.properties[:10]:
     unit = f" ({col.unit})" if col.unit else ""
-    print(f"  {col.display_name}{unit}")
+    print(f"  {col.name}{unit}")
 ```
 
 ```

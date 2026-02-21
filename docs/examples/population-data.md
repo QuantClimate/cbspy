@@ -104,6 +104,7 @@ CBS uses specific period code formats. Pass them directly to `periods`:
 | Format | Example | Meaning |
 |--------|---------|---------|
 | Yearly | `2023JJ00` | Year 2023 |
+| Half-yearly | `2023HJ01` | 2023 H1 |
 | Quarterly | `2023KW01` | 2023 Q1 |
 | Monthly | `2023MM03` | 2023 March |
 
