@@ -79,7 +79,7 @@ class TestListTables:
 class TestGetMetadata:
     @respx.mock
     def test_returns_table_metadata(self):
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/TableInfos").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/TableInfos").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -95,7 +95,7 @@ class TestGetMetadata:
                 },
             )
         )
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -134,7 +134,7 @@ class TestGetMetadata:
 
     @respx.mock
     def test_not_found_raises(self):
-        respx.get(f"{BASE}/ODataApi/odata/FAKE/TableInfos").mock(return_value=httpx.Response(404, text="Not found"))
+        respx.get(f"{BASE}/ODataFeed/OData/FAKE/TableInfos").mock(return_value=httpx.Response(404, text="Not found"))
         client = Client()
         with pytest.raises(TableNotFoundError):
             client.get_metadata("FAKE")
@@ -143,7 +143,7 @@ class TestGetMetadata:
 class TestGetData:
     @respx.mock
     def test_returns_dataframe_with_resolved_columns(self):
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -180,7 +180,7 @@ class TestGetData:
                 },
             )
         )
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/TypedDataSet").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -202,7 +202,7 @@ class TestGetData:
 
     @respx.mock
     def test_get_data_with_periods_filter(self):
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -229,7 +229,7 @@ class TestGetData:
                 },
             )
         )
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/TypedDataSet").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -245,7 +245,7 @@ class TestGetData:
 
     @respx.mock
     def test_get_data_empty_dataset(self):
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/DataProperties").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/DataProperties").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -262,7 +262,7 @@ class TestGetData:
                 },
             )
         )
-        respx.get(f"{BASE}/ODataApi/odata/37296eng/TypedDataSet").mock(
+        respx.get(f"{BASE}/ODataFeed/OData/37296eng/TypedDataSet").mock(
             return_value=httpx.Response(200, json={"value": []})
         )
         client = Client()

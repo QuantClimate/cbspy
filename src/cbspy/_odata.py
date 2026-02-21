@@ -7,7 +7,7 @@ import httpx
 
 from cbspy.exceptions import APIError, TableNotFoundError
 
-_ODATA_API = "/ODataApi/odata"
+_ODATA_API = "/ODataFeed/OData"
 _CATALOG = "/ODataCatalog/Tables"
 
 _MAX_RETRIES = 1
