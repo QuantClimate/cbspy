@@ -269,3 +269,30 @@ class TestGetData:
         df = client.get_data("37296eng")
         assert isinstance(df, pl.DataFrame)
         assert df.shape[0] == 0
+
+
+class TestClientLifecycle:
+    def test_close_closes_owned_http_client(self):
+        client = Client()
+        assert not client._http.is_closed
+        client.close()
+        assert client._http.is_closed
+
+    def test_close_does_not_close_external_http_client(self):
+        http = httpx.Client()
+        client = Client(http_client=http)
+        client.close()
+        assert not http.is_closed
+        http.close()
+
+    def test_context_manager(self):
+        with Client() as client:
+            assert not client._http.is_closed
+        assert client._http.is_closed
+
+    def test_context_manager_with_external_client(self):
+        http = httpx.Client()
+        with Client(http_client=http) as client:
+            assert not client._http.is_closed
+        assert not http.is_closed
+        http.close()

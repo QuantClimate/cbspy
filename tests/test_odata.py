@@ -82,3 +82,70 @@ class TestGetCatalog:
         result = client.get_catalog(language="en")
         assert len(result) == 1
         assert result[0]["Language"] == "en"
+
+
+class TestRetryBehavior:
+    def test_retries_once_on_500_then_succeeds(self):
+        attempt = 0
+
+        def handler(request):
+            nonlocal attempt
+            attempt += 1
+            if attempt == 1:
+                return httpx.Response(500, text="Internal Server Error")
+            return httpx.Response(200, json={"value": [{"ID": 0}]})
+
+        transport = httpx.MockTransport(handler)
+        client = ODataClient(base_url=BASE, http_client=httpx.Client(transport=transport))
+        result = client.get_json("37296eng", "TypedDataSet")
+        assert result == [{"ID": 0}]
+        assert attempt == 2
+
+    def test_raises_after_retry_exhausted(self):
+        def handler(request):
+            return httpx.Response(503, text="Service Unavailable")
+
+        transport = httpx.MockTransport(handler)
+        client = ODataClient(base_url=BASE, http_client=httpx.Client(transport=transport))
+        with pytest.raises(APIError) as exc_info:
+            client.get_json("37296eng", "TypedDataSet")
+        assert exc_info.value.status_code == 503
+
+    def test_no_retry_on_404(self):
+        attempt = 0
+
+        def handler(request):
+            nonlocal attempt
+            attempt += 1
+            return httpx.Response(404, text="Not found")
+
+        transport = httpx.MockTransport(handler)
+        client = ODataClient(base_url=BASE, http_client=httpx.Client(transport=transport))
+        with pytest.raises(TableNotFoundError):
+            client.get_json("FAKE", "TypedDataSet")
+        assert attempt == 1
+
+    def test_retries_on_network_error_then_succeeds(self):
+        attempt = 0
+
+        def handler(request):
+            nonlocal attempt
+            attempt += 1
+            if attempt == 1:
+                raise httpx.ConnectError("Connection refused")  # noqa: TRY003
+            return httpx.Response(200, json={"value": [{"ID": 0}]})
+
+        transport = httpx.MockTransport(handler)
+        client = ODataClient(base_url=BASE, http_client=httpx.Client(transport=transport))
+        result = client.get_json("37296eng", "TypedDataSet")
+        assert result == [{"ID": 0}]
+        assert attempt == 2
+
+    def test_raises_network_error_after_retry_exhausted(self):
+        def handler(request):
+            raise httpx.ConnectError("Connection refused")  # noqa: TRY003
+
+        transport = httpx.MockTransport(handler)
+        client = ODataClient(base_url=BASE, http_client=httpx.Client(transport=transport))
+        with pytest.raises(httpx.ConnectError):
+            client.get_json("37296eng", "TypedDataSet")
