@@ -652,6 +652,80 @@ class TestGetDataUntyped:
         assert route.called
 
 
+GROUPED_PROPS = [
+    {"ID": 0, "Key": "Perioden", "Title": "Perioden", "Type": "TimeDimension"},
+    {"ID": 1, "Key": "", "Title": "Aardgas", "Type": "TopicGroup"},
+    {"ID": 2, "ParentID": 1, "Key": "Transporttarief_1", "Title": "Transporttarief", "Type": "Topic"},
+    {"ID": 3, "Key": "", "Title": "Elektriciteit", "Type": "TopicGroup"},
+    {"ID": 4, "ParentID": 3, "Key": "Transporttarief_7", "Title": "Transporttarief", "Type": "Topic"},
+    {"ID": 5, "ParentID": 3, "Key": "Vermindering_15", "Title": "Vermindering energiebelasting", "Type": "Topic"},
+]
+
+
+class TestGetDataDuplicateTitles:
+    """Columns that share a title, e.g. 85592NED has "Transporttarief" under both Aardgas and Elektriciteit."""
+
+    def _mock_props(self, props: list[dict]) -> None:
+        respx.get(f"{BASE}/ODataFeed/OData/85592NED/DataProperties").mock(
+            return_value=httpx.Response(200, json={"value": props})
+        )
+
+    def _mock_rows(self, rows: list[dict]) -> respx.Route:
+        return respx.get(f"{BASE}/ODataFeed/OData/85592NED/TypedDataSet").mock(
+            return_value=httpx.Response(200, json={"value": rows})
+        )
+
+    @respx.mock
+    def test_shared_titles_are_qualified_by_group(self):
+        self._mock_props(GROUPED_PROPS)
+        self._mock_rows([
+            {
+                "ID": 0,
+                "Perioden": "2026MM09",
+                "Transporttarief_1": 221.79,
+                "Transporttarief_7": 394.11,
+                "Vermindering_15": -519.8,
+            }
+        ])
+        with Client() as client:
+            df = client.get_data("85592NED")
+        assert df.columns == [
+            "Perioden",
+            "Aardgas: Transporttarief",
+            "Elektriciteit: Transporttarief",
+            "Vermindering energiebelasting",
+        ]
+        assert df["Aardgas: Transporttarief"][0] == 221.79
+        assert df["Elektriciteit: Transporttarief"][0] == 394.11
+
+    @respx.mock
+    def test_shared_titles_without_group_fall_back_to_key(self):
+        self._mock_props([
+            {"Key": "Perioden", "Title": "Perioden", "Type": "TimeDimension"},
+            {"Key": "Totaal_1", "Title": "Totaal", "Type": "Topic"},
+            {"Key": "Totaal_2", "Title": "Totaal", "Type": "Topic"},
+        ])
+        self._mock_rows([{"ID": 0, "Perioden": "2026MM09", "Totaal_1": 1, "Totaal_2": 2}])
+        with Client() as client:
+            df = client.get_data("85592NED")
+        assert df["Totaal (Totaal_1)"][0] == 1
+        assert df["Totaal (Totaal_2)"][0] == 2
+
+    @respx.mock
+    def test_columns_accepts_qualified_title(self):
+        self._mock_props(GROUPED_PROPS)
+        route = self._mock_rows([{"ID": 0, "Perioden": "2026MM09", "Transporttarief_1": 221.79}])
+        with Client() as client:
+            client.get_data("85592NED", columns=["Perioden", "Aardgas: Transporttarief"])
+        assert dict(route.calls[0].request.url.params)["$select"] == "Perioden,Transporttarief_1"
+
+    @respx.mock
+    def test_columns_rejects_shared_title(self):
+        self._mock_props(GROUPED_PROPS)
+        with Client() as client, pytest.raises(ValueError, match="Aardgas: Transporttarief"):
+            client.get_data("85592NED", columns=["Transporttarief"])
+
+
 class TestClientLifecycle:
     def test_close_closes_owned_http_client(self):
         client = Client()

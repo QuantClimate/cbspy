@@ -95,6 +95,8 @@ shape: (2, 28)
 
 Period codes like `2022JJ00` are automatically decoded to `2022`. Quarterly periods (`2023KW01`) become `2023 Q1`, and monthly periods (`2023MM03`) become `2023 March`.
 
+Some tables use the same label for several columns. For example, 85592NED has "Transporttarief" under both Aardgas and Elektriciteit. cbspy then prefixes each label with its topic group: `Aardgas: Transporttarief` and `Elektriciteit: Transporttarief`. If the labels are still ambiguous, it appends the CBS key: `Totaal (Totaal_1)`.
+
 ## Filtering by dimension
 
 By default, `get_data()` downloads the entire table. Use `periods` to filter by time, or `filters` to filter on any dimension:
