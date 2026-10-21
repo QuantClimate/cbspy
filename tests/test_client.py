@@ -323,8 +323,36 @@ class TestGetData:
         assert isinstance(df, pl.DataFrame)
         assert df.shape[0] == 0
 
+    def _mock_long_table(self, values: list[float | int | None]) -> None:
+        respx.get(f"{BASE}/ODataFeed/OData/00372/DataProperties").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {"Key": "Perioden", "Title": "Perioden", "Type": "TimeDimension"},
+                        {"Key": "Invoer_1", "Title": "Invoer", "Type": "Topic", "Datatype": "Double"},
+                    ]
+                },
+            )
+        )
+        rows = [{"ID": i, "Perioden": f"{1900 + i}JJ00", "Invoer_1": v} for i, v in enumerate(values)]
+        respx.get(f"{BASE}/ODataFeed/OData/00372/TypedDataSet").mock(
+            return_value=httpx.Response(200, json={"value": rows})
+        )
 
-class TestGetDataFilters:
+    @respx.mock
+    def test_column_null_for_first_hundred_rows(self):
+        # Long CBS tables (e.g. 00372, from 1946) often have series that start late.
+        self._mock_long_table([None] * 100 + [100])
+        df = Client().get_data("00372")
+        assert df["Invoer"][-1] == 100
+
+    @respx.mock
+    def test_float_after_hundred_ints_is_not_truncated(self):
+        self._mock_long_table([1] * 100 + [1.5])
+        df = Client().get_data("00372")
+        assert df["Invoer"][-1] == 1.5
+
     """Tests for the generic filters parameter on get_data()."""
 
     def _mock_props(self):
