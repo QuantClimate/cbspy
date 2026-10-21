@@ -139,6 +139,59 @@ class TestGetMetadata:
         with pytest.raises(TableNotFoundError):
             client.get_metadata("FAKE")
 
+    @respx.mock
+    def test_null_fields_become_empty_strings(self):
+        # CBS sends explicit nulls, e.g. 86103NED has properties with "Description": null.
+        respx.get(f"{BASE}/ODataFeed/OData/86103NED/TableInfos").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "Title": "Aardgasbalans; aanbod en verbruik",
+                            "ShortDescription": None,
+                            "Identifier": "86103NED",
+                            "Period": "2015 - augustus 2026",
+                            "Frequency": None,
+                        }
+                    ]
+                },
+            )
+        )
+        respx.get(f"{BASE}/ODataFeed/OData/86103NED/DataProperties").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "ID": 0,
+                            "Key": "Perioden",
+                            "Title": "Perioden",
+                            "Description": None,
+                            "Type": "TimeDimension",
+                            "Unit": None,
+                        },
+                        {
+                            "ID": 1,
+                            "Key": "TotaalVerbruik_25",
+                            "Title": "Totaal verbruik",
+                            "Description": None,
+                            "Type": "Topic",
+                            "Datatype": "Long",
+                            "Unit": "mln m3",
+                        },
+                    ]
+                },
+            )
+        )
+        client = Client()
+        meta = client.get_metadata("86103NED")
+        assert meta.description == ""
+        assert meta.frequency == ""
+        assert meta.properties[0].unit == ""
+        assert meta.properties[1].description == ""
+        assert meta.properties[1].unit == "mln m3"
+
 
 class TestGetData:
     @respx.mock
