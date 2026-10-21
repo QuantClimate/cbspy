@@ -144,7 +144,9 @@ class Client:
                 renamed[new_key] = value
             renamed_rows.append(renamed)
 
-        return pl.DataFrame(renamed_rows)
+        # Infer from every row: polars' default looks at the first 100 only, which crashes on series
+        # that start late and silently truncates floats that first appear after 100 integer rows.
+        return pl.DataFrame(renamed_rows, infer_schema_length=None)
 
     @staticmethod
     def _build_filter(
