@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
 import httpx
@@ -112,7 +113,7 @@ class Client:
             Polars DataFrame with resolved column names and decoded periods.
         """
         prop_rows = self._odata.get_json(table_id, "DataProperties")
-        column_map = {p["Key"]: p.get("Title", p["Key"]) for p in prop_rows}
+        column_map = self._column_names(prop_rows)
         period_keys = {p["Key"] for p in prop_rows if p.get("Type") == "TimeDimension"}
 
         filter_str = self._build_filter(periods, filters, period_keys)
@@ -122,6 +123,11 @@ class Client:
 
         if columns is not None:
             title_to_key = {v: k for k, v in column_map.items()}
+            for c in columns:
+                shared = [column_map[p["Key"]] for p in prop_rows if p.get("Key") and p.get("Title") == c]
+                if c not in title_to_key and c not in column_map and shared:
+                    msg = f"{c!r} is the title of several columns in {table_id}; use one of {shared}"
+                    raise ValueError(msg)
             select_keys = [title_to_key.get(c, c) for c in columns]
             params["$select"] = ",".join(select_keys)
 
@@ -145,6 +151,27 @@ class Client:
             renamed_rows.append(renamed)
 
         return pl.DataFrame(renamed_rows)
+
+    @staticmethod
+    def _column_names(prop_rows: list[dict[str, Any]]) -> dict[str, str]:
+        """Map each column key to its title, qualifying titles that several columns share.
+
+        A shared title is prefixed with its topic group ("Aardgas: Transporttarief"). If that is
+        still ambiguous, the CBS key is appended ("Totaal (Totaal_1)").
+        """
+        groups = {p.get("ID"): p.get("Title") or "" for p in prop_rows if p.get("Type") == "TopicGroup"}
+        cols = [p for p in prop_rows if p.get("Key")]
+        titles = Counter(p.get("Title") or p["Key"] for p in cols)
+
+        names: dict[str, str] = {}
+        for p in cols:
+            name = p.get("Title") or p["Key"]
+            if titles[name] > 1 and p.get("ParentID") in groups:
+                name = f"{groups[p['ParentID']]}: {name}"
+            names[p["Key"]] = name
+
+        counts = Counter(names.values())
+        return {k: f"{v} ({k})" if counts[v] > 1 else v for k, v in names.items()}
 
     @staticmethod
     def _build_filter(
