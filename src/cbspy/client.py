@@ -76,12 +76,13 @@ class Client:
         prop_rows = self._odata.get_json(table_id, "DataProperties")
         columns = [self._parse_column(p) for p in prop_rows]
 
+        # CBS sends explicit nulls for missing fields, so `or` rather than a .get() default.
         return TableMetadata(
-            id=info.get("Identifier", table_id),
-            title=info.get("Title", ""),
-            description=info.get("ShortDescription", ""),
-            period=info.get("Period", ""),
-            frequency=info.get("Frequency", ""),
+            id=info.get("Identifier") or table_id,
+            title=info.get("Title") or "",
+            description=info.get("ShortDescription") or "",
+            period=info.get("Period") or "",
+            frequency=info.get("Frequency") or "",
             properties=columns,
         )
 
@@ -173,9 +174,9 @@ class Client:
     def _parse_column(prop: dict[str, Any]) -> Column:
         """Convert a raw DataProperties entry to a Column model."""
         return Column(
-            id=prop.get("Key", ""),
-            name=prop.get("Title", ""),
-            unit=prop.get("Unit", ""),
-            datatype=prop.get("Datatype", prop.get("Type", "")),
-            description=prop.get("Description", ""),
+            id=prop.get("Key") or "",
+            name=prop.get("Title") or "",
+            unit=prop.get("Unit") or "",
+            datatype=prop.get("Datatype") or prop.get("Type") or "",
+            description=prop.get("Description") or "",
         )
